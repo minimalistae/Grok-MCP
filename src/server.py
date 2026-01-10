@@ -162,17 +162,18 @@ async def web_search(
         enable_image_understanding=enable_image_understanding,
     )
     
-    include_options = ["verbose_streaming"]
+    include_options = []
     if include_inline_citations:
         include_options.append("inline_citations")
     
-    chat_params = {"model": model, "tools": [xai_web_search(**tool_params)], "include": include_options}
+    chat_params = {"model": model, "tools": [xai_web_search(**tool_params)]}
+    if include_options:
+        chat_params["include"] = include_options
     if max_turns:
         chat_params["max_turns"] = max_turns
     
     chat = client.chat.create(**chat_params)
     chat.append(user(prompt))
-    
     response = chat.sample()
     
     result = {
@@ -225,17 +226,18 @@ async def x_search(
         enable_video_understanding=enable_video_understanding,
     )
     
-    include_options = ["verbose_streaming"]
+    include_options = []
     if include_inline_citations:
         include_options.append("inline_citations")
     
-    chat_params = {"model": model, "tools": [xai_x_search(**tool_params)], "include": include_options}
+    chat_params = {"model": model, "tools": [xai_x_search(**tool_params)]}
+    if include_options:
+        chat_params["include"] = include_options
     if max_turns:
         chat_params["max_turns"] = max_turns
     
     chat = client.chat.create(**chat_params)
     chat.append(user(prompt))
-    
     response = chat.sample()
     
     result = {
@@ -257,11 +259,44 @@ async def x_search(
 
 
 @mcp.tool()
-async def agentic_search(
+async def code_executor(
     prompt: str,
     model: str = "grok-4-1-fast",
-    use_web_search: bool = True,
-    use_x_search: bool = True,
+    max_turns: Optional[int] = None
+):
+    client = Client(api_key=XAI_API_KEY)
+    
+    chat_params = {"model": model, "tools": [code_execution()], "include": ["code_execution_call_output"]}
+    if max_turns:
+        chat_params["max_turns"] = max_turns
+    
+    chat = client.chat.create(**chat_params)
+    chat.append(user(prompt))
+    response = chat.sample()
+    
+    client.close()
+    
+    result = {
+        "content": response.content,
+        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
+        "usage": extract_usage(response),
+        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
+    }
+
+    if response.tool_outputs:
+        result["code_outputs"] = [tool_output.message.content for tool_output in response.tool_outputs]
+    
+    return result
+
+
+@mcp.tool()
+async def grok_agent(
+    prompt: str,
+    file_ids: Optional[List[str]] = None,
+    image_urls: Optional[List[str]] = None,
+    image_paths: Optional[List[str]] = None,
+    use_web_search: bool = False,
+    use_x_search: bool = False,
     use_code_execution: bool = False,
     allowed_domains: Optional[List[str]] = None,
     excluded_domains: Optional[List[str]] = None,
@@ -272,15 +307,13 @@ async def agentic_search(
     enable_image_understanding: bool = False,
     enable_video_understanding: bool = False,
     include_inline_citations: bool = False,
+    model: str = "grok-4-1-fast",
+    system_prompt: Optional[str] = None,
     max_turns: Optional[int] = None
 ):
-
-    if not use_web_search and not use_x_search and not use_code_execution:
-        raise ValueError("At least one tool must be enabled")
-    
     client = Client(api_key=XAI_API_KEY)
-    tools = []
     
+    tools = []
     if use_web_search:
         web_params = build_params(
             allowed_domains=allowed_domains,
@@ -303,26 +336,56 @@ async def agentic_search(
     if use_code_execution:
         tools.append(code_execution())
     
-    include_options = ["verbose_streaming"]
+    include_options = ["code_execution_call_output"]
     if include_inline_citations:
         include_options.append("inline_citations")
     
-    chat_params = {"model": model, "tools": tools, "include": include_options}
+    chat_params = {"model": model, "include": include_options}
+    if tools:
+        chat_params["tools"] = tools
     if max_turns:
         chat_params["max_turns"] = max_turns
     
     chat = client.chat.create(**chat_params)
-    chat.append(user(prompt))
     
+    if system_prompt:
+        chat.append(system(system_prompt))
+    
+    content_items = []
+    
+    if file_ids:
+        for fid in file_ids:
+            content_items.append(file(fid))
+    
+    if image_urls:
+        for url in image_urls:
+            content_items.append(image(image_url=url))
+    
+    if image_paths:
+        for path in image_paths:
+            ext = Path(path).suffix.lower().replace('.', '')
+            base64_img = encode_image_to_base64(path)
+            content_items.append(image(image_url=f"data:image/{ext};base64,{base64_img}"))
+    
+    content_items.append(prompt)
+    chat.append(user(*content_items))
     response = chat.sample()
+    
+    client.close()
     
     result = {
         "content": response.content,
-        "citations": list(response.citations) if response.citations else [],
-        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
         "usage": extract_usage(response),
-        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
     }
+    
+    if response.citations:
+        result["citations"] = list(response.citations)
+    
+    if response.tool_calls:
+        result["tool_calls"] = [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls]
+    
+    if response.server_side_tool_usage:
+        result["server_side_tool_usage"] = dict(response.server_side_tool_usage)
     
     if include_inline_citations and response.inline_citations:
         result["inline_citations"] = [
@@ -330,49 +393,6 @@ async def agentic_search(
             for c in response.inline_citations
         ]
     
-    client.close()
-    return result
-
-
-@mcp.tool()
-async def code_executor(
-    prompt: str,
-    model: str = "grok-4-1-fast",
-    include_code_output: bool = True,
-    max_turns: Optional[int] = None
-):
-
-    client = Client(api_key=XAI_API_KEY)
-    
-    include_options = ["verbose_streaming"]
-    if include_code_output:
-        include_options.append("code_execution_call_output")
-    
-    chat_params = {"model": model, "tools": [code_execution()], "include": include_options}
-    if max_turns:
-        chat_params["max_turns"] = max_turns
-    
-    chat = client.chat.create(**chat_params)
-    chat.append(user(prompt))
-    
-    code_outputs = []
-    for response, chunk in chat.stream():
-        if hasattr(chunk, 'tool_outputs'):
-            for tool_output in chunk.tool_outputs:
-                if tool_output.content:
-                    code_outputs.append(tool_output.content)
-    
-    result = {
-        "content": response.content,
-        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
-        "usage": extract_usage(response),
-        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
-    }
-    
-    if code_outputs:
-        result["code_outputs"] = code_outputs
-    
-    client.close()
     return result
 
 
@@ -527,7 +547,6 @@ async def chat_with_files(
     
     file_attachments = [file(fid) for fid in file_ids]
     chat.append(user(prompt, *file_attachments))
-    
     response = chat.sample()
     
     client.close()
