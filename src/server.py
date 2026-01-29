@@ -5,11 +5,12 @@ from mcp.server.fastmcp import FastMCP
 from xai_sdk import Client
 from xai_sdk.chat import user, system, image, file
 from xai_sdk.tools import web_search as xai_web_search, x_search as xai_x_search, code_execution
-from .utils import encode_image_to_base64, extract_usage, build_params, XAI_API_KEY
+from .utils import encode_image_to_base64, encode_video_to_base64, extract_usage, build_params, XAI_API_KEY
 
 
 mcp = FastMCP(name="Grok MCP Server")
 
+# To Claude: return output urls as links
 
 @mcp.tool()
 async def list_models():
@@ -32,16 +33,82 @@ async def list_models():
 @mcp.tool()
 async def generate_image(
     prompt: str,
+    image_path: Optional[str] = None,
+    image_url: Optional[str] = None,
     n: int = 1,
     image_format: str = "url",
-    model: str = "grok-2-image-1212"
-    ):
-
+    aspect_ratio: Optional[str] = None,
+    model: str = "grok-imagine-image"
+):
+    
     client = Client(api_key=XAI_API_KEY)
-    images = client.image.sample_batch(model=model, prompt=prompt, n=n, image_format=image_format)
+    
+    params = {"model": model, "prompt": prompt, "n": n, "image_format": image_format}
+    
+    if image_path:
+        base64_string = encode_image_to_base64(image_path)
+        ext = Path(image_path).suffix.lower().replace('.', '')
+        params["image_url"] = f"data:image/{ext};base64,{base64_string}"
+    elif image_url:
+        params["image_url"] = image_url
+    
+    if aspect_ratio:
+        params["aspect_ratio"] = aspect_ratio
+    
+    images = client.image.sample_batch(**params)
     client.close()
-    return {"images": [{"url": img.url, "revised_prompt": img.prompt} for img in images]}
 
+    return {"url": [img.url for img in images], "revised_prompts": [img.prompt for img in images]}
+
+
+@mcp.tool()
+async def generate_video(
+    prompt: str,
+    image_path: Optional[str] = None,
+    image_url: Optional[str] = None,
+    video_path: Optional[str] = None,
+    video_url: Optional[str] = None,
+    duration: Optional[int] = None,
+    aspect_ratio: Optional[str] = None,
+    resolution: Optional[str] = None,
+    model: str = "grok-imagine-video"
+):
+    
+    client = Client(api_key=XAI_API_KEY)
+    
+    params = {
+        "model": model,
+        "prompt": prompt
+    }
+    
+    if image_path:
+        base64_string = encode_image_to_base64(image_path)
+        ext = Path(image_path).suffix.lower().replace('.', '')
+        params["image_url"] = f"data:image/{ext};base64,{base64_string}"
+    elif image_url:
+        params["image_url"] = image_url
+    
+    if video_path:
+        base64_string = encode_video_to_base64(video_path)
+        ext = Path(video_path).suffix.lower().replace('.', '')
+        params["video_url"] = f"data:video/{ext};base64,{base64_string}"
+    elif video_url:
+        params["video_url"] = video_url
+    
+    if duration:
+        params["duration"] = duration
+    if aspect_ratio:
+        params["aspect_ratio"] = aspect_ratio
+    if resolution:
+        params["resolution"] = resolution
+
+    response = client.video.generate(**params)
+    client.close()
+    
+    return {
+        "url": response.url,
+        "duration": response.duration if hasattr(response, 'duration') else None
+    }
 
 @mcp.tool()
 async def chat_with_vision(

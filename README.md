@@ -1,6 +1,6 @@
 # Grok-MCP
 
-MCP server for xAI's Grok API with agentic tool calling, image generation, vision, and file support.
+MCP server for xAI's Grok API with agentic tool calling, image and video generation, vision, and file support.
 
 
 <a href="https://glama.ai/mcp/servers/@merterbak/Grok-MCP">
@@ -11,7 +11,7 @@ MCP server for xAI's Grok API with agentic tool calling, image generation, visio
 
 - **Agentic Tool Calling**: Web search, X search, and code execution with multi-step reasoning
 - **Multiple Grok Models**: Access to Grok-4.1-Fast-Reasoning, Grok-4.1-Fast-Non-Reasoning, Grok-4-Fast, Grok-3-Mini, and more
-- **Image Generation**: Create images using Grok's image generation model
+- **Image and Video Generation**: Create images and videos using Grok Imagine
 - **Vision Capabilities**: Analyze images with Grok's vision models
 - **Reasoning Models**: Advanced reasoning with extended thinking models (Grok-4.1-Fast-Reasoning, Grok-3-Mini, Grok-4)
 - **Stateful Conversations**: Use this newly released feature to maintain conversation context as id across multiple requests
@@ -161,14 +161,33 @@ Get detailed reasoning with the response.
 ---
 
 ### `generate_image`
-Create images from text.
+Create or edit images from text.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `prompt` | str | required | Image description |
-| `n` | int | 1 | Number of images |
-| `image_format` | str | url | url or b64_json |
-| `model` | str | grok-2-image-1212 | Image model |
+| `prompt` | str | required | Image description or edit instruction |
+| `image_path` | str | None | Local image path to edit |
+| `image_url` | str | None | Image URL to edit |
+| `n` | int | 1 | Number of images (1-10) |
+| `aspect_ratio` | str | None | like "16:9", "1:1" |
+| `model` | str | grok-imagine-image | Image model |
+
+---
+
+### `generate_video`
+Create or edit videos from text, images, or existing videos.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `prompt` | str | required | Video description or edit instruction |
+| `image_path` | str | None | Local image path to animate |
+| `image_url` | str | None | Image URL to animate |
+| `video_path` | str | None | Local video path to edit (max 20MB) |
+| `video_url` | str | None | Video URL to edit |
+| `duration` | int | None | Duration in seconds (1-15) |
+| `aspect_ratio` | str | None | like "16:9", "4:3" |
+| `resolution` | str | None | "720p" or "480p" |
+| `model` | str | grok-imagine-video | Video model |
 
 ---
 

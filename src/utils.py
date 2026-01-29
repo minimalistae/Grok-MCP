@@ -10,12 +10,20 @@ if XAI_API_KEY:
     os.environ["XAI_API_KEY"] = XAI_API_KEY
 
 
-def encode_image_to_base64(image_path: str) -> str:
+def encode_image_to_base64(image_path: str):
     path = Path(image_path)
     if not path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
+
+
+def encode_video_to_base64(video_path: str):
+    path = Path(video_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+    with open(video_path, "rb") as video_file:
+        return base64.b64encode(video_file.read()).decode("utf-8")
 
 
 def extract_usage(response):
