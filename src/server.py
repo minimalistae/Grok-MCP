@@ -33,12 +33,12 @@ async def list_models():
 @mcp.tool()
 async def generate_image(
     prompt: str,
+    model: str = "grok-imagine-image",
     image_path: Optional[str] = None,
     image_url: Optional[str] = None,
     n: int = 1,
     image_format: str = "url",
-    aspect_ratio: Optional[str] = None,
-    model: str = "grok-imagine-image"
+    aspect_ratio: Optional[str] = None
 ):
     
     client = Client(api_key=XAI_API_KEY)
@@ -64,14 +64,14 @@ async def generate_image(
 @mcp.tool()
 async def generate_video(
     prompt: str,
+    model: str = "grok-imagine-video",
     image_path: Optional[str] = None,
     image_url: Optional[str] = None,
     video_path: Optional[str] = None,
     video_url: Optional[str] = None,
     duration: Optional[int] = None,
     aspect_ratio: Optional[str] = None,
-    resolution: Optional[str] = None,
-    model: str = "grok-imagine-video"
+    resolution: Optional[str] = None
 ):
     
     client = Client(api_key=XAI_API_KEY)
@@ -113,10 +113,10 @@ async def generate_video(
 @mcp.tool()
 async def chat_with_vision(
     prompt: str,
+    model: str = "grok-4",
     image_paths: Optional[List[str]] = None,
     image_urls: Optional[List[str]] = None,
-    detail: str = "auto",
-    model: str = "grok-4"
+    detail: str = "auto"
 ):
 
     client = Client(api_key=XAI_API_KEY)
@@ -170,35 +170,6 @@ async def chat(
 
     return {
         "content": response.content,
-        "usage": extract_usage(response),
-    }
-
-
-@mcp.tool()
-async def chat_with_reasoning(
-    prompt: str,
-    model: str = "grok-3-mini",
-    system_prompt: Optional[str] = None,
-    reasoning_effort: Optional[str] = None
-):
-    #for seeing reasoning content besides grok-3-mini model use stateful chat
-
-    client = Client(api_key=XAI_API_KEY, timeout=3600)
-    
-    chat_params = {"model": model}
-    if reasoning_effort:
-        chat_params["reasoning_effort"] = reasoning_effort
-    
-    chat = client.chat.create(**chat_params)
-    if system_prompt:
-        chat.append(system(system_prompt))
-    chat.append(user(prompt))
-    response = chat.sample()
-    client.close()
-    
-    return {
-        "content": response.content,
-        "reasoning_content": getattr(response, 'reasoning_content', None),
         "usage": extract_usage(response),
     }
 
@@ -359,6 +330,7 @@ async def code_executor(
 @mcp.tool()
 async def grok_agent(
     prompt: str,
+    model: str = "grok-4-1-fast",
     file_ids: Optional[List[str]] = None,
     image_urls: Optional[List[str]] = None,
     image_paths: Optional[List[str]] = None,
@@ -374,7 +346,6 @@ async def grok_agent(
     enable_image_understanding: bool = False,
     enable_video_understanding: bool = False,
     include_inline_citations: bool = False,
-    model: str = "grok-4-1-fast",
     system_prompt: Optional[str] = None,
     max_turns: Optional[int] = None
 ):
@@ -466,8 +437,8 @@ async def grok_agent(
 @mcp.tool()
 async def stateful_chat(
     prompt: str,
-    response_id: Optional[str] = None,
     model: str = "grok-4",
+    response_id: Optional[str] = None,
     system_prompt: Optional[str] = None
 ):
     client = Client(api_key=XAI_API_KEY)
@@ -602,8 +573,8 @@ async def delete_file(file_id: str):
 @mcp.tool()
 async def chat_with_files(
     prompt: str,
-    file_ids: List[str],
     model: str = "grok-4-1-fast",
+    file_ids: List[str] = None,
     system_prompt: Optional[str] = None
 ):
     client = Client(api_key=XAI_API_KEY)

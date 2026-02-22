@@ -10,7 +10,7 @@ MCP server for xAI's Grok API with agentic tool calling, image and video generat
 ## Features
 
 - **Agentic Tool Calling**: Web search, X search, and code execution with multi-step reasoning
-- **Multiple Grok Models**: Access to Grok-4.1-Fast-Reasoning, Grok-4.1-Fast-Non-Reasoning, Grok-4-Fast, Grok-3-Mini, and more
+- **Multiple Grok Models**: Access to Grok-4.1-Fast-Reasoning, Grok-4.1-Fast-Non-Reasoning, Grok-4-Fast, and more
 - **Image and Video Generation**: Create images and videos using Grok Imagine
 - **Vision Capabilities**: Analyze images with Grok's vision models
 - **Files API**: Upload, manage, and chat with documents 
@@ -138,25 +138,12 @@ Analyze images with text.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Question about the image |
+| `model` | str | grok-4 | Vision model |
 | `image_paths` | List[str] | None | Local image file paths |
 | `image_urls` | List[str] | None | Image URLs |
 | `detail` | str | auto | auto, low, or high |
-| `model` | str | grok-4 | Vision model |
 
 **Returns:** Content + usage with `prompt_image_tokens`
-
----
-
-### `chat_with_reasoning`
-Get detailed reasoning with the response.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Your question |
-| `model` | str | grok-3-mini | Reasoning model |
-| `reasoning_effort` | str | None | low or high |
-
-**Returns:** Content, reasoning_content, usage (with reasoning_tokens)
 
 ---
 
@@ -166,11 +153,11 @@ Create or edit images from text.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Image description or edit instruction |
+| `model` | str | grok-imagine-image | Image model |
 | `image_path` | str | None | Local image path to edit |
 | `image_url` | str | None | Image URL to edit |
 | `n` | int | 1 | Number of images (1-10) |
 | `aspect_ratio` | str | None | like "16:9", "1:1" |
-| `model` | str | grok-imagine-image | Image model |
 
 ---
 
@@ -180,6 +167,7 @@ Create or edit videos from text, images, or existing videos.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Video description or edit instruction |
+| `model` | str | grok-imagine-video | Video model |
 | `image_path` | str | None | Local image path to animate |
 | `image_url` | str | None | Image URL to animate |
 | `video_path` | str | None | Local video path to edit (max 20MB) |
@@ -187,7 +175,6 @@ Create or edit videos from text, images, or existing videos.
 | `duration` | int | None | Duration in seconds (1-15) |
 | `aspect_ratio` | str | None | like "16:9", "4:3" |
 | `resolution` | str | None | "720p" or "480p" |
-| `model` | str | grok-imagine-video | Video model |
 
 ---
 
@@ -234,6 +221,7 @@ Unified agent combining files, images, and all agentic tools (web search, X sear
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Your query |
+| `model` | str | grok-4-1-fast | Model |
 | `file_ids` | List[str] | None | Uploaded file IDs to search |
 | `image_urls` | List[str] | None | Image URLs to analyze |
 | `image_paths` | List[str] | None | Local image paths |
@@ -265,8 +253,8 @@ Maintain conversation state across requests.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Your message |
-| `response_id` | str | None | Previous response ID |
 | `model` | str | grok-4 | Model |
+| `response_id` | str | None | Previous response ID to continue a conversation |
 | `system_prompt` | str | None | System instruction |
 
 **Returns:** Content, response_id, usage
@@ -330,8 +318,8 @@ Chat with uploaded documents using agentic document search.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Question about docs |
-| `file_ids` | List[str] | required | File IDs to search |
 | `model` | str | grok-4-1-fast | Model |
+| `file_ids` | List[str] | None | File IDs to search |
 | `system_prompt` | str | None | System instruction |
 
 Returns: Content, citations, usage
