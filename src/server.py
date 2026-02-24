@@ -5,12 +5,14 @@ from mcp.server.fastmcp import FastMCP
 from xai_sdk import Client
 from xai_sdk.chat import user, system, image, file
 from xai_sdk.tools import web_search as xai_web_search, x_search as xai_x_search, code_execution
-from .utils import encode_image_to_base64, encode_video_to_base64, extract_usage, build_params, XAI_API_KEY
+from .utils import encode_image_to_base64, encode_video_to_base64, build_params, XAI_API_KEY
 
 
 mcp = FastMCP(name="Grok MCP Server")
 
-# To Claude: return output urls as links
+# Note: Tools return strings not dicts because if you return a dict it shows up as hard to read raw JSON (lines all side by side for result text output) in the Claude UI and Claude Code.
+
+# To Claude: return output URLs as clickable links
 
 @mcp.tool()
 async def list_models():
@@ -58,7 +60,12 @@ async def generate_image(
     images = client.image.sample_batch(**params)
     client.close()
 
-    return {"url": [img.url for img in images], "revised_prompts": [img.prompt for img in images]}
+    result = ["## Generated Image(s)"]
+    for i, img in enumerate(images, 1):
+        result.append(f"\n**Image {i}:** {img.url}")
+        if img.prompt and img.prompt != prompt:
+            result.append(f"*Revised prompt:* {img.prompt}")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -104,11 +111,11 @@ async def generate_video(
 
     response = client.video.generate(**params)
     client.close()
-    
-    return {
-        "url": response.url,
-        "duration": response.duration if hasattr(response, 'duration') else None
-    }
+
+    result = [f"## Generated Video\n\n**URL:** {response.url}"]
+    if hasattr(response, 'duration') and response.duration:
+        result.append(f"**Duration:** {response.duration}s")
+    return "\n".join(result)
 
 @mcp.tool()
 async def chat_with_vision(
@@ -140,16 +147,7 @@ async def chat_with_vision(
     response = chat.sample()
     client.close()
     
-    return {
-        "content": response.content,
-        "usage": {
-            "prompt_text_tokens": response.usage.prompt_text_tokens,
-            "prompt_image_tokens": response.usage.prompt_image_tokens,
-            "completion_tokens": response.usage.completion_tokens,
-            "reasoning_tokens": response.usage.reasoning_tokens,
-            "total_tokens": response.usage.total_tokens,
-        } if response.usage else {},
-    }
+    return response.content
 
 
 @mcp.tool()
@@ -168,10 +166,7 @@ async def chat(
     response = chat.sample()
     client.close()
 
-    return {
-        "content": response.content,
-        "usage": extract_usage(response),
-    }
+    return response.content
 
 
 @mcp.tool()
@@ -214,22 +209,14 @@ async def web_search(
     chat.append(user(prompt))
     response = chat.sample()
     
-    result = {
-        "content": response.content,
-        "citations": list(response.citations) if response.citations else [],
-        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
-        "usage": extract_usage(response),
-        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
-    }
-    
-    if include_inline_citations and response.inline_citations:
-        result["inline_citations"] = [
-            {"id": c.id, "url": c.web_citation.url if c.HasField("web_citation") else c.x_citation.url}
-            for c in response.inline_citations
-        ]
-    
     client.close()
-    return result
+
+    result = [response.content]
+    if response.citations:
+        result.append("\n\n**Sources:**")
+        for url in response.citations:
+            result.append(f"- {url}")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -278,22 +265,14 @@ async def x_search(
     chat.append(user(prompt))
     response = chat.sample()
     
-    result = {
-        "content": response.content,
-        "citations": list(response.citations) if response.citations else [],
-        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
-        "usage": extract_usage(response),
-        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
-    }
-    
-    if include_inline_citations and response.inline_citations:
-        result["inline_citations"] = [
-            {"id": c.id, "url": c.x_citation.url if c.HasField("x_citation") else c.web_citation.url}
-            for c in response.inline_citations
-        ]
-    
     client.close()
-    return result
+
+    result = [response.content]
+    if response.citations:
+        result.append("\n\n**Sources:**")
+        for url in response.citations:
+            result.append(f"- {url}")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -313,18 +292,13 @@ async def code_executor(
     response = chat.sample()
     
     client.close()
-    
-    result = {
-        "content": response.content,
-        "tool_calls": [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls],
-        "usage": extract_usage(response),
-        "server_side_tool_usage": dict(response.server_side_tool_usage) if response.server_side_tool_usage else {}
-    }
 
+    result = [response.content]
     if response.tool_outputs:
-        result["code_outputs"] = [tool_output.message.content for tool_output in response.tool_outputs]
-    
-    return result
+        result.append("\n\n**Code Output(s):**")
+        for output in response.tool_outputs:
+            result.append(f"```\n{output.message.content}\n```")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -410,28 +384,13 @@ async def grok_agent(
     response = chat.sample()
     
     client.close()
-    
-    result = {
-        "content": response.content,
-        "usage": extract_usage(response),
-    }
-    
+
+    result = [response.content]
     if response.citations:
-        result["citations"] = list(response.citations)
-    
-    if response.tool_calls:
-        result["tool_calls"] = [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in response.tool_calls]
-    
-    if response.server_side_tool_usage:
-        result["server_side_tool_usage"] = dict(response.server_side_tool_usage)
-    
-    if include_inline_citations and response.inline_citations:
-        result["inline_citations"] = [
-            {"id": c.id, "url": c.web_citation.url if c.HasField("web_citation") else c.x_citation.url}
-            for c in response.inline_citations
-        ]
-    
-    return result
+        result.append("\n\n**Sources:**")
+        for url in response.citations:
+            result.append(f"- {url}")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -455,11 +414,7 @@ async def stateful_chat(
     response = chat.sample()
     client.close()
     
-    return {
-        "content": response.content,
-        "response_id": response.id,
-        "usage": extract_usage(response)
-    }
+    return f"{response.content}\n\n**Response ID:** `{response.id}`"
 
 
 @mcp.tool()
@@ -468,9 +423,9 @@ async def retrieve_stateful_response(response_id: str):
     responses = client.chat.get_stored_completion(response_id)
     client.close()
     if not responses:
-        return {"error": f"No response found for id {response_id}"}
+        return f"No response found for id {response_id}"
     response = responses[0] if isinstance(responses, list) else responses
-    return {"response_id": response.id, "content": response.content}
+    return f"{response.content}\n\n**Response ID:** `{response.id}`"
 
 
 @mcp.tool()
@@ -478,7 +433,7 @@ async def delete_stateful_response(response_id: str):
     client = Client(api_key=XAI_API_KEY)
     client.chat.delete_stored_completion(response_id)
     client.close()
-    return {"response_id": response_id, "deleted": True}
+    return f"Deleted response `{response_id}`"
 
 
 @mcp.tool()
@@ -495,12 +450,7 @@ async def upload_file(
     uploaded = client.files.upload(file_path)
     client.close()
     
-    return {
-        "file_id": uploaded.id,
-        "filename": uploaded.filename,
-        "size": uploaded.size,
-        "created_at": str(uploaded.created_at),
-    }
+    return f"**File uploaded successfully**\n- **File ID:** `{uploaded.id}`\n- **Filename:** {uploaded.filename}\n- **Size:** {uploaded.size} bytes"
 
 
 @mcp.tool()
@@ -513,17 +463,12 @@ async def list_files(
     response = client.files.list(limit=limit, order=order, sort_by=sort_by)
     client.close()
     
-    return {
-        "files": [
-            {
-                "file_id": f.id,
-                "filename": f.filename,
-                "size": f.size,
-                "created_at": str(f.created_at),
-            }
-            for f in response.data
-        ]
-    }
+    if not response.data:
+        return "No files found."
+    result = ["**Files:**\n"]
+    for f in response.data:
+        result.append(f"- `{f.id}` — {f.filename} ({f.size} bytes)")
+    return "\n".join(result)
 
 
 @mcp.tool()
@@ -532,12 +477,7 @@ async def get_file(file_id: str):
     file_info = client.files.get(file_id)
     client.close()
     
-    return {
-        "file_id": file_info.id,
-        "filename": file_info.filename,
-        "size": file_info.size,
-        "created_at": str(file_info.created_at),
-    }
+    return f"**File ID:** `{file_info.id}`\n**Filename:** {file_info.filename}\n**Size:** {file_info.size} bytes\n**Created:** {file_info.created_at}"
 
 
 @mcp.tool()
@@ -552,13 +492,9 @@ async def get_file_content(file_id: str, max_bytes: int = 500000):
     if truncated:
         content = content[:max_bytes]
     
-    return {
-        "file_id": file_id,
-        "content": content.decode("utf-8", errors="replace"),
-        "size": total_size,
-        "truncated": truncated,
-        "returned_bytes": len(content),
-    }
+    text = content.decode("utf-8", errors="replace")
+    note = f"\n\n*[Truncated: showing {len(content):,} of {total_size:,} bytes]*" if truncated else ""
+    return text + note
 
 
 @mcp.tool()
@@ -567,7 +503,7 @@ async def delete_file(file_id: str):
     delete_response = client.files.delete(file_id)
     client.close()
     
-    return {"file_id": delete_response.id, "deleted": delete_response.deleted}
+    return f"Deleted file `{delete_response.id}`"
 
 
 @mcp.tool()
@@ -589,11 +525,12 @@ async def chat_with_files(
     
     client.close()
     
-    return {
-        "content": response.content,
-        "citations": list(response.citations) if response.citations else [],
-        "usage": extract_usage(response),
-    }
+    result = [response.content]
+    if response.citations:
+        result.append("\n\n**Sources:**")
+        for url in response.citations:
+            result.append(f"- {url}")
+    return "\n".join(result)
 
 
 def main():
