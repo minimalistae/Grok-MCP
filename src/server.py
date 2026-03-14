@@ -3,12 +3,14 @@ from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from xai_sdk import Client
 from xai_sdk.chat import user, system, assistant, image, file
 from xai_sdk.tools import web_search as xai_web_search, x_search as xai_x_search, code_execution
 from .utils import encode_image_to_base64, encode_video_to_base64, build_params, XAI_API_KEY, load_history, save_history
 
 mcp = FastMCP(name="Grok MCP Server")
+READONLY = ToolAnnotations(readOnlyHint=True)
 
 # Note: Tools return strings not dicts because if you return a dict it shows up as hard to read raw JSON (lines all side by side for result text output) in the Claude UI and Claude Code.
 
@@ -46,7 +48,7 @@ async def chat(
     return response.content
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def list_chat_sessions():
     Path("chats").mkdir(exist_ok=True)
     sessions = sorted(Path("chats").glob("*.json"))
@@ -61,7 +63,7 @@ async def list_chat_sessions():
     return "\n".join(result)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def get_chat_history(session: str = "default"):
     history = load_history(session)
     if not history:
@@ -83,7 +85,7 @@ async def clear_chat_history(session: str = "default"):
     return f"Cleared history for session `{session}`."
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def list_models():
     
     client = Client(api_key=XAI_API_KEY)
@@ -231,7 +233,7 @@ async def chat_with_vision(
 
     return response.content
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def web_search(
     prompt: str,
     model: str = "grok-4-1-fast",
@@ -281,7 +283,7 @@ async def web_search(
     return "\n".join(result)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def x_search(
     prompt: str,
     model: str = "grok-4-1-fast",
@@ -492,7 +494,7 @@ async def stateful_chat(
     return f"{response.content}\n\n**Response ID:** `{response.id}`"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def retrieve_stateful_response(response_id: str):
     client = Client(api_key=XAI_API_KEY)
     responses = client.chat.get_stored_completion(response_id)
@@ -528,7 +530,7 @@ async def upload_file(
     return f"**File uploaded successfully**\n- **File ID:** `{uploaded.id}`\n- **Filename:** {uploaded.filename}\n- **Size:** {uploaded.size} bytes"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def list_files(
     limit: int = 100,
     order: str = "desc",
@@ -546,7 +548,7 @@ async def list_files(
     return "\n".join(result)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def get_file(file_id: str):
     client = Client(api_key=XAI_API_KEY)
     file_info = client.files.get(file_id)
@@ -555,7 +557,7 @@ async def get_file(file_id: str):
     return f"**File ID:** `{file_info.id}`\n**Filename:** {file_info.filename}\n**Size:** {file_info.size} bytes\n**Created:** {file_info.created_at}"
 
 
-@mcp.tool()
+@mcp.tool(annotations=READONLY)
 async def get_file_content(file_id: str, max_bytes: int = 500000):
     client = Client(api_key=XAI_API_KEY)
     content = client.files.content(file_id)
