@@ -20,7 +20,7 @@ READONLY = ToolAnnotations(readOnlyHint=True)
 async def chat(
     prompt: str,
     session: Optional[str] = None,
-    model: str = "grok-4",
+    model: str = "grok-4-1-fast-reasoning",
     system_prompt: Optional[str] = None,
 ):
     history = load_history(session) if session else []
@@ -87,18 +87,25 @@ async def clear_chat_history(session: str = "default"):
 
 @mcp.tool(annotations=READONLY)
 async def list_models():
-    
+
     client = Client(api_key=XAI_API_KEY)
     models_info = []
-    
-    models_info.append("## Language Models")
-    for model in client.models.list_language_models():
-        models_info.append(f"- {model.name} ({model.created.ToDatetime().strftime('%d %B %Y')})")
-    
-    models_info.append("\n## Image Generation Models")
-    for model in client.models.list_image_generation_models():
-        models_info.append(f"- {model.name} ({model.created.ToDatetime().strftime('%d %B %Y')})")
-    
+
+    models_info.append("# Language Models\n")
+    for m in client.models.list_language_models():
+        date = m.created.ToDatetime().strftime('%d %b %Y')
+        inp = m.prompt_text_token_price / 10000
+        out = m.completion_text_token_price / 10000
+        models_info.append(f"**{m.name}** — {date}")
+        models_info.append(f"  Input: ${inp:g}/M · Output: ${out:g}/M\n")
+
+    models_info.append("# Image Generation Models\n")
+    for m in client.models.list_image_generation_models():
+        date = m.created.ToDatetime().strftime('%d %b %Y')
+        price = m.image_price / 10000000000
+        models_info.append(f"**{m.name}** — {date}")
+        models_info.append(f"  ${price:g} per image\n")
+
     client.close()
     return "\n".join(models_info)
 
@@ -192,7 +199,7 @@ async def generate_video(
 async def chat_with_vision(
     prompt: str,
     session: Optional[str] = None,
-    model: str = "grok-4",
+    model: str = "grok-4-1-fast-reasoning",
     image_paths: Optional[List[str]] = None,
     image_urls: Optional[List[str]] = None,
     detail: str = "auto"
@@ -236,7 +243,7 @@ async def chat_with_vision(
 @mcp.tool(annotations=READONLY)
 async def web_search(
     prompt: str,
-    model: str = "grok-4-1-fast",
+    model: str = "grok-4-1-fast-reasoning",
     allowed_domains: Optional[List[str]] = None,
     excluded_domains: Optional[List[str]] = None,
     enable_image_understanding: bool = False,
@@ -286,7 +293,7 @@ async def web_search(
 @mcp.tool(annotations=READONLY)
 async def x_search(
     prompt: str,
-    model: str = "grok-4-1-fast",
+    model: str = "grok-4-1-fast-reasoning",
     allowed_x_handles: Optional[List[str]] = None,
     excluded_x_handles: Optional[List[str]] = None,
     from_date: Optional[str] = None,
@@ -342,7 +349,7 @@ async def x_search(
 @mcp.tool()
 async def code_executor(
     prompt: str,
-    model: str = "grok-4-1-fast",
+    model: str = "grok-4-1-fast-reasoning",
     max_turns: Optional[int] = None
 ):
     client = Client(api_key=XAI_API_KEY)
@@ -369,7 +376,7 @@ async def code_executor(
 async def grok_agent(
     prompt: str,
     session: Optional[str] = None,
-    model: str = "grok-4-1-fast",
+    model: str = "grok-4-1-fast-reasoning",
     file_ids: Optional[List[str]] = None,
     image_urls: Optional[List[str]] = None,
     image_paths: Optional[List[str]] = None,
@@ -473,7 +480,7 @@ async def grok_agent(
 @mcp.tool()
 async def stateful_chat(
     prompt: str,
-    model: str = "grok-4",
+    model: str = "grok-4-1-fast-reasoning",
     response_id: Optional[str] = None,
     system_prompt: Optional[str] = None
 ):
@@ -587,7 +594,7 @@ async def delete_file(file_id: str):
 async def chat_with_files(
     prompt: str,
     session: Optional[str] = None,
-    model: str = "grok-4-1-fast",
+    model: str = "grok-4-1-fast-reasoning",
     file_ids: List[str] = None,
     system_prompt: Optional[str] = None
 ):

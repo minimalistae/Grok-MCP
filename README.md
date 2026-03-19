@@ -10,7 +10,7 @@ MCP server for xAI's Grok API with agentic tool calling, image and video generat
 ## Features
 
 - **Agentic Tool Calling**: Web search, X search, and code execution with multi-step reasoning
-- **Multiple Grok Models**: Access to Grok-4.1-Fast-Reasoning, Grok-4.1-Fast-Non-Reasoning, Grok-4-Fast, and more
+- **Multiple Grok Models**: Access to latest models such as grok-4.20-0309-reasoning, grok-4-1-fast-reasoning and more
 - **Image and Video Generation**: Create images and videos using Grok Imagine
 - **Vision Capabilities**: Analyze images with Grok's vision models
 - **Files API**: Upload, manage, and chat with documents 
@@ -137,8 +137,7 @@ mcp dev main.py
 Note: For using images and files, you must provide paths to chat. See [Filesystem MCP (Optional)](#filesystem-mcp-optional) for setup.
 
 ### `list_models`
-List all available Grok models.
-
+List all available Grok models with pricing.
 ---
 
 ### `chat`
@@ -148,7 +147,7 @@ Standard chat completion with optional persistent history.
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Your message |
 | `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4 | Model to use |
+| `model` | str | grok-4-1-fast-reasoning | Model to use |
 | `system_prompt` | str | None | System instruction |
 
 ---
@@ -160,7 +159,7 @@ Analyze images with text.
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Question about the image |
 | `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4 | Vision model |
+| `model` | str | grok-4-1-fast-reasoning | Vision model |
 | `image_paths` | List[str] | None | Local image file paths |
 | `image_urls` | List[str] | None | Image URLs |
 | `detail` | str | auto | auto, low, or high |
@@ -206,7 +205,7 @@ Agentic web search with autonomous research.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Search query |
-| `model` | str | grok-4-1-fast | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `allowed_domains` | List[str] | None | Restrict to domains (max 5) |
 | `excluded_domains` | List[str] | None | Exclude domains (max 5) |
 | `enable_image_understanding` | bool | False | Analyze images in results |
@@ -223,7 +222,7 @@ Agentic X (Twitter) search.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Search query |
-| `model` | str | grok-4-1-fast | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `allowed_x_handles` | List[str] | None | Only these handles (max 10) |
 | `excluded_x_handles` | List[str] | None | Exclude handles (max 10) |
 | `from_date` | str | None | Start date (DD-MM-YYYY) |
@@ -244,7 +243,7 @@ Unified agent combining files, images, and all agentic tools (web search, X sear
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Your query |
 | `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `file_ids` | List[str] | None | Uploaded file IDs to search |
 | `image_urls` | List[str] | None | Image URLs to analyze |
 | `image_paths` | List[str] | None | Local image paths |
@@ -263,7 +262,7 @@ Execute Python code for calculations and analysis.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Task description |
-| `model` | str | grok-4-1-fast | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `max_turns` | int | None | Limit turns |
 
 **Returns:** Content, tool_calls, code_outputs, usage
@@ -276,7 +275,7 @@ Maintain conversation state across requests.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Your message |
-| `model` | str | grok-4 | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `response_id` | str | None | Previous response ID to continue a conversation |
 | `system_prompt` | str | None | System instruction |
 
@@ -342,7 +341,7 @@ Chat with uploaded documents using agentic document search.
 |-----------|------|---------|-------------|
 | `prompt` | str | required | Question about docs |
 | `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast | Model |
+| `model` | str | grok-4-1-fast-reasoning | Model |
 | `file_ids` | List[str] | None | File IDs to search |
 | `system_prompt` | str | None | System instruction |
 
