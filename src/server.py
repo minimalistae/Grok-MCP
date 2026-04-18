@@ -13,7 +13,7 @@ mcp = FastMCP(name="Grok MCP Server")
 READONLY = ToolAnnotations(readOnlyHint=True)
 
 # Note: Tools return strings not dicts because if you return a dict it shows up as hard to read raw JSON (lines all side by side for result text output) in the Claude UI and Claude Code.
-
+# Every tool has a docstring so Claude understands what it does better.
 # To Claude: return output URLs as clickable links
 
 @mcp.tool()
@@ -24,6 +24,21 @@ async def chat(
     system_prompt: Optional[str] = None,
     agent_count: Optional[int] = None,
 ):
+    """Send a text prompt to a Grok model and return its reply.
+
+    Replays prior turns from `chats/{session}.json` when a session is given,
+    then appends the new user message and saves the round trip.
+
+    Args:
+        prompt: User message to send to the model.
+        session: Optional session name. Loads and appends history to `chats/{session}.json`.
+        model: Grok model id (default `grok-4-1-fast-reasoning`).
+        system_prompt: Optional system instruction prepended to the conversation.
+        agent_count: 4 or 16. Only valid with `grok-4.20-multi-agent` for multi-agent research.
+
+    Returns:
+        The assistant's reply text.
+    """
     history = load_history(session) if session else []
 
     client = Client(api_key=XAI_API_KEY)
@@ -54,6 +69,12 @@ async def chat(
 
 @mcp.tool(annotations=READONLY)
 async def list_chat_sessions():
+    """List all local chat sessions stored under `chats/`.
+
+    Returns:
+        Markdown list of session names with turn counts and last-message timestamps,
+        or a placeholder message when no sessions exist.
+    """
     Path("chats").mkdir(exist_ok=True)
     sessions = sorted(Path("chats").glob("*.json"))
     if not sessions:
@@ -69,6 +90,14 @@ async def list_chat_sessions():
 
 @mcp.tool(annotations=READONLY)
 async def get_chat_history(session: str = "default"):
+    """Return the full message history for a local chat session.
+
+    Args:
+        session: Session name to load from `chats/{session}.json` (default `default`).
+
+    Returns:
+        Formatted transcript with timestamps and roles, or a not-found message.
+    """
     history = load_history(session)
     if not history:
         return f"No history found for session `{session}`."
@@ -82,6 +111,16 @@ async def get_chat_history(session: str = "default"):
 
 @mcp.tool()
 async def clear_chat_history(session: str = "default"):
+    """Delete the local history file for a chat session.
+
+    Only removes the client-side JSON file. Server-side stored responses are untouched.
+
+    Args:
+        session: Session name whose `chats/{session}.json` file should be deleted.
+
+    Returns:
+        Confirmation string or a not-found message.
+    """
     path = Path("chats") / f"{session}.json"
     if not path.exists():
         return f"No session `{session}` found."
@@ -91,7 +130,12 @@ async def clear_chat_history(session: str = "default"):
 
 @mcp.tool(annotations=READONLY)
 async def list_models():
+    """List all Grok language and image models with live pricing from the xAI API.
 
+    Returns:
+        Markdown sections for language models (input/output $/M tokens) and
+        image generation models ($/image), each with the model's release date.
+    """
     client = Client(api_key=XAI_API_KEY)
     models_info = []
 
@@ -125,7 +169,24 @@ async def generate_image(
     aspect_ratio: Optional[str] = None,
     resolution: Optional[str] = None,
 ):
+    """Generate new images or edit existing ones with Grok Imagine.
 
+    Pass `image_paths` and/or `image_urls` to edit images or use them as
+    visual references. Multiple references are combined in a single call.
+
+    Args:
+        prompt: Image description, or the edit instruction when references are provided.
+        model: Image model (`grok-imagine-image` or `grok-imagine-image-pro`).
+        image_paths: Local image files (JPG/PNG) used as edit sources or references.
+        image_urls: Public image URLs used as edit sources or references.
+        n: Number of images to generate (1–10).
+        image_format: `"url"` (default) or `"base64"`.
+        aspect_ratio: Aspect ratio like `"16:9"`, `"1:1"`, or `"9:16"`.
+        resolution: `"1k"` or `"2k"`.
+
+    Returns:
+        Markdown block with each generated image URL and any revised prompt.
+    """
     client = Client(api_key=XAI_API_KEY)
 
     params = {"model": model, "prompt": prompt, "n": n, "image_format": image_format}
@@ -170,9 +231,28 @@ async def generate_video(
     aspect_ratio: Optional[str] = None,
     resolution: Optional[str] = None
 ):
-    
+    """Generate or edit videos with Grok Imagine.
+
+    Text-to-video by default. Provide an image to animate (image-to-video), or
+    a source video to edit. Only one mode per call. Generation polls
+    synchronously (xAI's default timeout is 10 minutes).
+
+    Args:
+        prompt: Video description, or the edit instruction for video editing.
+        model: Video model (default `grok-imagine-video`).
+        image_path: Local image to use as the starting frame.
+        image_url: Public image URL to use as the starting frame.
+        video_path: Local video to edit (max 20 MB, .mp4, ≤ 8.7s).
+        video_url: Public video URL to edit (.mp4, ≤ 8.7s).
+        duration: Video length in seconds (1–15, ignored when editing).
+        aspect_ratio: Aspect ratio like `"16:9"` or `"9:16"` (ignored when editing).
+        resolution: `"480p"` or `"720p"` (ignored when editing).
+
+    Returns:
+        Markdown block with the generated video URL and actual duration.
+    """
     client = Client(api_key=XAI_API_KEY)
-    
+
     params = {
         "model": model,
         "prompt": prompt
@@ -212,6 +292,21 @@ async def extend_video(
     model: str = "grok-imagine-video",
     duration: Optional[int] = None,
 ):
+    """Extend an existing video with a follow-up prompt.
+
+    Continues the source video seamlessly from its last frame. `duration` sets
+    the length of the extension only, not the total output. For example, a
+    10 second input plus `duration=5` yields a 15 second final video.
+
+    Args:
+        prompt: What should happen in the extended segment.
+        video_url: Public URL of the source video (.mp4, 2–15 s).
+        model: Video model (default `grok-imagine-video`).
+        duration: Length of the extension in seconds (2–10, default 6).
+
+    Returns:
+        Markdown block with the extended video URL and total duration.
+    """
     client = Client(api_key=XAI_API_KEY)
 
     params = {"model": model, "prompt": prompt, "video_url": video_url}
@@ -233,6 +328,22 @@ async def chat_with_vision(
     image_urls: Optional[List[str]] = None,
     detail: str = "auto"
 ):
+    """Analyze one or more images with a Grok vision model.
+
+    Accepts local image paths and/or public URLs in the same call. Local images
+    are sent as base64 data URIs (JPG/JPEG/PNG only, max 20 MiB each).
+
+    Args:
+        prompt: Question or instruction about the image(s).
+        session: Optional session name for persistent history in `chats/{session}.json`.
+        model: Vision-capable Grok model (default `grok-4-1-fast-reasoning`).
+        image_paths: Local image file paths to analyze.
+        image_urls: Public image URLs to analyze.
+        detail: Image detail level. One of `"auto"`, `"low"`, or `"high"`.
+
+    Returns:
+        The model's textual answer about the image(s).
+    """
     history = load_history(session) if session else []
 
     client = Client(api_key=XAI_API_KEY)
@@ -279,7 +390,23 @@ async def web_search(
     include_inline_citations: bool = False,
     max_turns: Optional[int] = None
 ):
+    """Answer a query using agentic real-time web search.
 
+    Grok browses the web across multiple turns, optionally inspecting images on
+    pages, then synthesizes an answer with citations.
+
+    Args:
+        prompt: Search query or research question.
+        model: Grok model used to drive the agent (default `grok-4-1-fast-reasoning`).
+        allowed_domains: Restrict search to these domains (max 5, mutually exclusive with excluded).
+        excluded_domains: Exclude these domains from search (max 5).
+        enable_image_understanding: Let the agent analyze images it encounters.
+        include_inline_citations: Embed `[1]`-style citation markers into the answer text.
+        max_turns: Cap the agent's reasoning/tool turns.
+
+    Returns:
+        Markdown with the answer body followed by a `**Sources:**` list of cited URLs.
+    """
     if allowed_domains and excluded_domains:
         raise ValueError("Cannot specify both allowed_domains and excluded_domains")
     if allowed_domains and len(allowed_domains) > 5:
@@ -332,7 +459,26 @@ async def x_search(
     include_inline_citations: bool = False,
     max_turns: Optional[int] = None
 ):
+    """Answer a query using agentic search over X (Twitter).
 
+    Searches posts, threads, and users on X. Can filter by handle allow/deny
+    lists and a date range, and optionally analyze images/videos attached to posts.
+
+    Args:
+        prompt: Search query or question about X content.
+        model: Grok model driving the agent (default `grok-4-1-fast-reasoning`).
+        allowed_x_handles: Restrict search to these handles (max 10, mutually exclusive with excluded).
+        excluded_x_handles: Exclude these handles (max 10).
+        from_date: Inclusive start date as `DD-MM-YYYY`.
+        to_date: Inclusive end date as `DD-MM-YYYY`.
+        enable_image_understanding: Let the agent analyze images in posts.
+        enable_video_understanding: Let the agent analyze videos in posts (X Search only).
+        include_inline_citations: Embed `[1]`-style citation markers into the answer.
+        max_turns: Cap the agent's reasoning/tool turns.
+
+    Returns:
+        Markdown with the answer body followed by a `**Sources:**` list of cited posts.
+    """
     if allowed_x_handles and excluded_x_handles:
         raise ValueError("Cannot specify both allowed_x_handles and excluded_x_handles")
     if allowed_x_handles and len(allowed_x_handles) > 10:
@@ -381,6 +527,19 @@ async def code_executor(
     model: str = "grok-4-1-fast-reasoning",
     max_turns: Optional[int] = None
 ):
+    """Solve a task by letting Grok run Python in a stateful sandbox.
+
+    The agent iteratively writes and executes Python (with common scientific
+    libraries) to arrive at a numeric, data, or analysis answer.
+
+    Args:
+        prompt: Task or question requiring computation.
+        model: Grok model driving the agent (default `grok-4-1-fast-reasoning`).
+        max_turns: Cap the number of reasoning/execution turns.
+
+    Returns:
+        Markdown with the final answer followed by each code execution block's stdout.
+    """
     client = Client(api_key=XAI_API_KEY)
     
     chat_params = {"model": model, "tools": [code_execution()], "include": ["code_execution_call_output"]}
@@ -425,6 +584,38 @@ async def grok_agent(
     max_turns: Optional[int] = None,
     agent_count: Optional[int] = None,
 ):
+    """All-in-one Grok agent combining files, vision, web/X search, and code execution.
+
+    Enable any subset of tools and attach any mix of uploaded files and images.
+    The agent decides which tools to use per turn. Supports optional local
+    session history and multi-agent research via `agent_count`.
+
+    Args:
+        prompt: Task or question for the agent.
+        session: Optional session name for persistent history in `chats/{session}.json`.
+        model: Grok model driving the agent (default `grok-4-1-fast-reasoning`).
+        file_ids: IDs of previously uploaded files to attach as context.
+        image_urls: Public image URLs to attach.
+        image_paths: Local image files to attach (sent as base64 data URIs).
+        use_web_search: Enable the agentic web search tool.
+        use_x_search: Enable the agentic X (Twitter) search tool.
+        use_code_execution: Enable the Python code execution tool.
+        allowed_domains: Web search allow-list (max 5, mutually exclusive with excluded).
+        excluded_domains: Web search deny-list (max 5).
+        allowed_x_handles: X search handle allow-list (max 10, mutually exclusive with excluded).
+        excluded_x_handles: X search handle deny-list (max 10).
+        from_date: X search inclusive start date as `DD-MM-YYYY`.
+        to_date: X search inclusive end date as `DD-MM-YYYY`.
+        enable_image_understanding: Let search tools analyze images they encounter.
+        enable_video_understanding: Let X search analyze videos in posts.
+        include_inline_citations: Embed `[1]`-style citation markers into the answer.
+        system_prompt: Optional system instruction prepended to the conversation.
+        max_turns: Cap the agent's reasoning/tool turns.
+        agent_count: 4 or 16. Only valid with `grok-4.20-multi-agent`.
+
+    Returns:
+        Markdown with the answer body followed by a `**Sources:**` list when citations exist.
+    """
     history = load_history(session) if session else []
 
     client = Client(api_key=XAI_API_KEY)
@@ -516,8 +707,22 @@ async def stateful_chat(
     response_id: Optional[str] = None,
     system_prompt: Optional[str] = None
 ):
+    """Continue a server-side stored conversation using xAI's deferred/stateful chat.
+
+    The xAI API stores every turn so the client only needs to send the latest
+    prompt plus `previous_response_id`. Omit `response_id` to start a new thread.
+
+    Args:
+        prompt: User message to append.
+        model: Grok model id (default `grok-4-1-fast-reasoning`).
+        response_id: ID of the previous response to continue from (omit to start fresh).
+        system_prompt: Optional system instruction. Applied only on the first turn.
+
+    Returns:
+        Assistant reply followed by the new `**Response ID:**` to pass back next turn.
+    """
     client = Client(api_key=XAI_API_KEY)
-    
+
     chat_params = {"model": model, "store_messages": True}
     if response_id:
         chat_params["previous_response_id"] = response_id
@@ -535,6 +740,14 @@ async def stateful_chat(
 
 @mcp.tool(annotations=READONLY)
 async def retrieve_stateful_response(response_id: str):
+    """Fetch a stored chat completion from xAI by its response ID.
+
+    Args:
+        response_id: ID returned by a prior `stateful_chat` call.
+
+    Returns:
+        The stored assistant reply and its `**Response ID:**`, or a not-found message.
+    """
     client = Client(api_key=XAI_API_KEY)
     responses = client.chat.get_stored_completion(response_id)
     client.close()
@@ -546,6 +759,14 @@ async def retrieve_stateful_response(response_id: str):
 
 @mcp.tool()
 async def delete_stateful_response(response_id: str):
+    """Delete a stored chat completion from xAI's servers.
+
+    Args:
+        response_id: ID of the stored response to remove.
+
+    Returns:
+        Confirmation string with the deleted response ID.
+    """
     client = Client(api_key=XAI_API_KEY)
     client.chat.delete_stored_completion(response_id)
     client.close()
@@ -554,6 +775,17 @@ async def delete_stateful_response(response_id: str):
 
 @mcp.tool()
 async def upload_file(file_path: str):
+    """Upload a local file to xAI so it can be attached to later chats.
+
+    Supported types include PDFs and text documents (see xAI file docs). The
+    returned file ID can be passed to `chat_with_files` or `grok_agent`.
+
+    Args:
+        file_path: Absolute or relative path to the local file.
+
+    Returns:
+        Markdown block with the assigned file ID, filename, and size.
+    """
     client = Client(api_key=XAI_API_KEY)
 
     path = Path(file_path)
@@ -572,6 +804,16 @@ async def list_files(
     order: str = "desc",
     sort_by: str = "created_at"
 ):
+    """List files previously uploaded to xAI.
+
+    Args:
+        limit: Maximum number of files to return (default 100).
+        order: `"asc"` or `"desc"` sort order (default `"desc"`).
+        sort_by: Field to sort by, such as `"created_at"`.
+
+    Returns:
+        Markdown list of files with ID, filename, and size, or a placeholder when empty.
+    """
     client = Client(api_key=XAI_API_KEY)
     response = client.files.list(limit=limit, order=order, sort_by=sort_by)
     client.close()
@@ -586,6 +828,14 @@ async def list_files(
 
 @mcp.tool(annotations=READONLY)
 async def get_file(file_id: str):
+    """Fetch metadata for a single uploaded file.
+
+    Args:
+        file_id: ID returned by `upload_file`.
+
+    Returns:
+        Markdown block with the file's ID, filename, size, and creation time.
+    """
     client = Client(api_key=XAI_API_KEY)
     file_info = client.files.get(file_id)
     client.close()
@@ -595,6 +845,18 @@ async def get_file(file_id: str):
 
 @mcp.tool(annotations=READONLY)
 async def get_file_content(file_id: str, max_bytes: int = 500000):
+    """Download the raw content of an uploaded file as text.
+
+    Bytes are decoded as UTF-8 with replacement for invalid sequences. Output
+    is truncated to `max_bytes` to avoid overwhelming the response.
+
+    Args:
+        file_id: ID of the uploaded file.
+        max_bytes: Maximum bytes to return (default 500 000).
+
+    Returns:
+        File text, with a truncation note appended when the content exceeds `max_bytes`.
+    """
     client = Client(api_key=XAI_API_KEY)
     content = client.files.content(file_id)
     client.close()
@@ -612,6 +874,14 @@ async def get_file_content(file_id: str, max_bytes: int = 500000):
 
 @mcp.tool()
 async def delete_file(file_id: str):
+    """Permanently delete an uploaded file from xAI.
+
+    Args:
+        file_id: ID of the file to remove.
+
+    Returns:
+        Confirmation string with the deleted file ID.
+    """
     client = Client(api_key=XAI_API_KEY)
     delete_response = client.files.delete(file_id)
     client.close()
@@ -627,6 +897,21 @@ async def chat_with_files(
     model: str = "grok-4-1-fast-reasoning",
     system_prompt: Optional[str] = None
 ):
+    """Chat with Grok using one or more previously uploaded files as context.
+
+    Attaches the given `file_ids` to the user turn so Grok can read/quote their
+    contents. Optional `session` persists local chat history across calls.
+
+    Args:
+        prompt: Question or instruction about the attached files.
+        file_ids: IDs of files previously returned by `upload_file`.
+        session: Optional session name for persistent history in `chats/{session}.json`.
+        model: Grok model id (default `grok-4-1-fast-reasoning`).
+        system_prompt: Optional system instruction prepended to the conversation.
+
+    Returns:
+        Assistant reply, followed by a `**Sources:**` list when the model cites URLs.
+    """
     history = load_history(session) if session else []
 
     client = Client(api_key=XAI_API_KEY)

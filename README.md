@@ -134,261 +134,43 @@ mcp dev main.py
 
 # Available Tools
 
+Each tool has a full docstring in [src/server.py](src/server.py) with its arguments and return format. MCP client surfaces those directly, so this list is just a quick map of what's available.
+
 Note: For using images and files, you must provide paths to chat. See [Filesystem MCP (Optional)](#filesystem-mcp-optional) for setup.
 
-### `list_models`
-List all available Grok models with pricing.
-
----
-
-### `chat`
-Standard chat completion with optional persistent history.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Your message |
-| `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast-reasoning | Model to use |
-| `system_prompt` | str | None | System instruction |
-| `agent_count` | int | None | 4 or 16 for multi-agent models (grok-4.20-multi-agent) |
-
----
-
-### `chat_with_vision`
-Analyze images with text.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Question about the image |
-| `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast-reasoning | Vision model |
-| `image_paths` | List[str] | None | Local image file paths |
-| `image_urls` | List[str] | None | Image URLs |
-| `detail` | str | auto | auto, low, or high |
-
-**Returns:** Content + usage with `prompt_image_tokens`
-
----
-
-### `generate_image`
-Create or edit images from text. Supports multiple editing by passing paths or URLs.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Image description or edit instruction |
-| `model` | str | grok-imagine-image | Image model (grok-imagine-image, grok-imagine-image-pro) |
-| `image_paths` | List[str] | None | Local image paths for reference/edit |
-| `image_urls` | List[str] | None | Image URLs for reference or edit |
-| `n` | int | 1 | Number of images (1-10) |
-| `aspect_ratio` | str | None | like "16:9", "1:1" |
-| `resolution` | str | None | "1k" or "2k" |
-
----
-
-### `generate_video`
-Create or edit videos from text, images, or existing videos.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Video description or edit instruction |
-| `model` | str | grok-imagine-video | Video model |
-| `image_path` | str | None | Local image path to animate |
-| `image_url` | str | None | Image URL to animate |
-| `video_path` | str | None | Local video path to edit (max 20MB) |
-| `video_url` | str | None | Video URL to edit |
-| `duration` | int | None | Duration in seconds (1-15) |
-| `aspect_ratio` | str | None | like "16:9", "4:3" |
-| `resolution` | str | None | "720p" or "480p" |
-
----
-
-### `extend_video`
-Extend an existing generated video with a follow up prompt.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Description for the extension |
-| `video_url` | str | required | URL of video to extend |
-| `model` | str | grok-imagine-video | Video model |
-| `duration` | int | None | Extension duration in seconds |
-
----
-
-### `web_search`
-Agentic web search with autonomous research.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Search query |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `allowed_domains` | List[str] | None | Restrict to domains (max 5) |
-| `excluded_domains` | List[str] | None | Exclude domains (max 5) |
-| `enable_image_understanding` | bool | False | Analyze images in results |
-| `include_inline_citations` | bool | False | Embed citations in text |
-| `max_turns` | int | None | Limit reasoning turns |
-
-**Returns:** Content, citations, tool_calls, usage
-
----
-
-### `x_search`
-Agentic X (Twitter) search.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Search query |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `allowed_x_handles` | List[str] | None | Only these handles (max 10) |
-| `excluded_x_handles` | List[str] | None | Exclude handles (max 10) |
-| `from_date` | str | None | Start date (DD-MM-YYYY) |
-| `to_date` | str | None | End date (DD-MM-YYYY) |
-| `enable_image_understanding` | bool | False | Analyze images |
-| `enable_video_understanding` | bool | False | Analyze videos |
-| `include_inline_citations` | bool | False | Embed citations |
-| `max_turns` | int | None | Limit turns |
-
-**Returns:** Content, citations, tool_calls, usage
-
----
-
-### `grok_agent`
-Unified agent combining files, images, and all agentic tools (web search, X search, code execution).
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Your query |
-| `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `file_ids` | List[str] | None | Uploaded file IDs to search |
-| `image_urls` | List[str] | None | Image URLs to analyze |
-| `image_paths` | List[str] | None | Local image paths |
-| `use_web_search` | bool | False | Enable web search |
-| `use_x_search` | bool | False | Enable X search |
-| `use_code_execution` | bool | False | Enable code execution |
-| `agent_count` | int | None | 4 or 16 for multi agent models |
-| + all web_search and x_search params | | | |
-
-**Returns:** Content, citations, tool_calls, code_outputs, uploaded_file_ids, usage
-
----
-
-### `code_executor`
-Execute Python code for calculations and analysis.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Task description |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `max_turns` | int | None | Limit turns |
-
-**Returns:** Content, tool_calls, code_outputs, usage
-
----
-
-### `stateful_chat`
-Maintain conversation state across requests.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Your message |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `response_id` | str | None | Previous response ID to continue a conversation |
-| `system_prompt` | str | None | System instruction |
-
-**Returns:** Content, response_id, usage
-
----
-
-### `retrieve_stateful_response`
-Retrieve a stored conversation.
-
----
-
-### `delete_stateful_response`
-Delete a stored conversation.
-
-
-### `upload_file`
-Upload a document (max 48 MB).
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file_path` | str | required | Local file path |
-
-**Supported formats:** .txt, .md, .py, .js, .csv, .json, .pdf, and more
-
----
-
-### `list_files`
-List uploaded files with sorting.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | int | 100 | Max files to return |
-| `order` | str | desc | asc or desc |
-| `sort_by` | str | created_at | created_at, filename, or size |
-
----
-
-### `get_file`
-Get file metadata by ID.
-
----
-
-### `get_file_content`
-Download file content by ID.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file_id` | str | required | File ID |
-| `max_bytes` | int | 500000 | Max bytes to return |
-
----
-
-### `delete_file`
-Delete a file by ID.
-
----
-
-### `chat_with_files`
-Chat with uploaded documents using agentic document search.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `prompt` | str | required | Question about docs |
-| `session` | str | None | Session name to save/load history |
-| `model` | str | grok-4-1-fast-reasoning | Model |
-| `file_ids` | List[str] | None | File IDs to search |
-| `system_prompt` | str | None | System instruction |
-
-Returns: Content, citations, usage
-
----
-
-### `list_chat_sessions`
-List all saved chat sessions in `chats/`.
-
----
-
-### `get_chat_history`
-Get the full message history for a session.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `session` | str | default | Session name |
-
----
-
-### `clear_chat_history`
-Delete the history file for a session.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `session` | str | default | Session name |
-
-
-
----
+### Chat and reasoning
+- `chat` — standard chat completion with optional persistent history and multi-agent support.
+- `chat_with_vision` — analyze local or remote images with a Grok vision model.
+- `chat_with_files` — chat grounded on previously uploaded documents.
+- `stateful_chat` — continue a server-side stored conversation via `response_id`.
+- `retrieve_stateful_response` — fetch a stored response by ID.
+- `delete_stateful_response` — delete a stored response by ID.
+
+### Agentic tools
+- `web_search` — autonomous web research with domain filters and citations.
+- `x_search` — autonomous search over X (Twitter) posts, with handle and date filters.
+- `code_executor` — solve tasks by running Python in a sandbox.
+- `grok_agent` — unified agent that mixes files, images, web search, X search, and code execution.
+
+### Image and video
+- `generate_image` — create or edit images with Grok Imagine (multi-reference editing supported).
+- `generate_video` — text-to-video, image-to-video, or video editing with Grok Imagine.
+- `extend_video` — extend an existing generated video with a follow-up prompt.
+
+### Files
+- `upload_file` — upload a local document.
+- `list_files` — list uploaded files with sorting.
+- `get_file` — fetch file metadata by ID.
+- `get_file_content` — download file content as text.
+- `delete_file` — delete a file by ID.
+
+### Local chat history
+- `list_chat_sessions` — list saved sessions in `chats/`.
+- `get_chat_history` — get a session's full transcript.
+- `clear_chat_history` — delete a session's local history file.
+
+### Models
+- `list_models` — list all Grok language and image models with live pricing.
 
   
 ## License
