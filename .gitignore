@@ -121,7 +121,13 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+# Real secrets live ONLY in a local, gitignored `.env`. `example.env` is a
+# committed placeholder (XAI_API_KEY=xai-123) and must never hold a real key.
+# These patterns keep any real-value dotenv variant out of git.
 .env
+.env.*
+*.env
+!example.env
 .venv
 env/
 venv/

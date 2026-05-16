@@ -7,7 +7,7 @@ from mcp.types import ToolAnnotations
 from xai_sdk import Client
 from xai_sdk.chat import user, system, assistant, image, file
 from xai_sdk.tools import web_search as xai_web_search, x_search as xai_x_search, code_execution
-from .utils import encode_image_to_base64, encode_video_to_base64, build_params, XAI_API_KEY, load_history, save_history
+from .utils import encode_image_to_base64, encode_video_to_base64, build_params, XAI_API_KEY, load_history, save_history, session_path, confine_user_path
 
 mcp = FastMCP(name="Grok MCP Server")
 READONLY = ToolAnnotations(readOnlyHint=True)
@@ -121,7 +121,7 @@ async def clear_chat_history(session: str = "default"):
     Returns:
         Confirmation string or a not-found message.
     """
-    path = Path("chats") / f"{session}.json"
+    path = session_path(session)
     if not path.exists():
         return f"No session `{session}` found."
     path.unlink()
@@ -788,11 +788,9 @@ async def upload_file(file_path: str):
     """
     client = Client(api_key=XAI_API_KEY)
 
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found {file_path}")
+    path = confine_user_path(file_path)
 
-    uploaded = client.files.upload(file_path)
+    uploaded = client.files.upload(str(path))
     client.close()
     
     return f"**File uploaded successfully**\n- **File ID:** `{uploaded.id}`\n- **Filename:** {uploaded.filename}\n- **Size:** {uploaded.size} bytes"
