@@ -1,0 +1,10 @@
+# Inherits the central CodeRabbit config from minimalist-ae/coderabbit.
+# Change shared review rules at the central repo; they propagate here on the
+# next review. The base_branches block is the shared default so CodeRabbit
+# reviews PRs targeting main or master in this repo.
+inheritance: true
+reviews:
+  auto_review:
+    base_branches:
+      - main
+      - master
